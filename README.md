@@ -1,228 +1,237 @@
----------------------------------------------------------------------
--- 🟣  NANA HUB  v2.2  –  Modo Compatibilidade + Modo Leve opcional
--- Coloque como LocalScript em StarterPlayerScripts.
----------------------------------------------------------------------
-local Players      = game:GetService("Players")
-local RunService   = game:GetService("RunService")
-local UIS          = game:GetService("UserInputService")
-local Camera       = workspace.CurrentCamera
-local LP           = Players.LocalPlayer
+--// CONFIGURAÇÕES DO HUB
+local HUB_NAME = "Nana Hub Brookhaven Edition"
+local HUB_VERSION = "v1.0"
 
----------------------------------------------------------------------
--- 🔧 CONFIGURAÇÃO (pode editar depois)
----------------------------------------------------------------------
-local targetParts = { "Head", "HumanoidRootPart", "UpperTorso", "Torso" }
+--// SERVIÇOS
+local UserInputService = game:GetService("UserInputService")
 
-local cfg = {
-    esp             = false,
-    aimbot          = false,
-    teamCheck       = true,
-    targetIndex     = 1,                -- começa em "Head"
-    fov             = 25,
-    smoothness      = 0.15,
-    showFOV         = false,
-    lowPower        = false,            -- se true, só atualiza a cada 0.1 s
-    espFillColor    = Color3.fromRGB(175,0,255),
+--// CRIAÇÃO DO SCREENGUI PRINCIPAL
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "NanaHubUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 
-    -- tempo interno
-    _dtAccumulator  = 0,
+--// MAINFRAME (Container da Interface) - Tamanho Inicial Compacto
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 550, 0, 400)
+mainFrame.Position = UDim2.new(0.5, -275, 0.5, -200)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 0, 50)   -- tom roxo escuro
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = ScreenGui
+
+local mainUICorner = Instance.new("UICorner")
+mainUICorner.CornerRadius = UDim.new(0, 10)
+mainUICorner.Parent = mainFrame
+
+-------------------------------------------------------------------
+-- CABEÇALHO: Exibe o título e a versão (dentro do Hub)
+-------------------------------------------------------------------
+local header = Instance.new("Frame")
+header.Name = "Header"
+header.Size = UDim2.new(1, 0, 0, 40)
+header.BackgroundColor3 = Color3.fromRGB(60, 0, 100)  -- roxo mais vivo
+header.BorderSizePixel = 0
+header.Parent = mainFrame
+
+local headerUICorner = Instance.new("UICorner")
+headerUICorner.CornerRadius = UDim.new(0, 10)
+headerUICorner.Parent = header
+
+-- Título (nome + versão)
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Name = "TitleLabel"
+titleLabel.Size = UDim2.new(1, -50, 1, 0)
+titleLabel.Position = UDim2.new(0, 10, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = HUB_NAME .. " " .. HUB_VERSION
+titleLabel.TextColor3 = Color3.new(1, 1, 1)
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextSize = 18
+titleLabel.Parent = header
+
+-------------------------------------------------------------------
+-- MENU LATERAL PARA CATEGORIAS
+-------------------------------------------------------------------
+local menuFrame = Instance.new("Frame")
+menuFrame.Name = "MenuFrame"
+menuFrame.Size = UDim2.new(0, 150, 1, -40)  -- desconta a altura do cabeçalho
+menuFrame.Position = UDim2.new(0, 0, 0, 40)
+menuFrame.BackgroundColor3 = Color3.fromRGB(20, 0, 40)
+menuFrame.BorderSizePixel = 0
+menuFrame.Parent = mainFrame
+
+local menuUICorner = Instance.new("UICorner")
+menuUICorner.CornerRadius = UDim.new(0, 10)
+menuUICorner.Parent = menuFrame
+
+local categories = {"Tp & View", "Troll", "Carro", "Avatar", "Utilidades"}
+local menuButtons = {}
+
+for i, cat in ipairs(categories) do
+    local btn = Instance.new("TextButton")
+    btn.Name = cat.."Button"
+    btn.Size = UDim2.new(1, -20, 0, 35)
+    btn.Position = UDim2.new(0, 10, 0, 10 + (i-1) * 40)
+    btn.Text = cat
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.BackgroundColor3 = Color3.fromRGB(50, 0, 70)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 16
+    btn.BorderSizePixel = 0
+    btn.Parent = menuFrame
+
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 5)
+    btnCorner.Parent = btn
+
+    table.insert(menuButtons, btn)
+end
+
+-------------------------------------------------------------------
+-- PAINEL DE CONTEÚDO PARA AS FUNÇÕES
+-------------------------------------------------------------------
+local contentFrame = Instance.new("Frame")
+contentFrame.Name = "ContentFrame"
+contentFrame.Size = UDim2.new(1, -150, 1, -40)
+contentFrame.Position = UDim2.new(0, 150, 0, 40)
+contentFrame.BackgroundColor3 = Color3.fromRGB(30, 0, 60)
+contentFrame.BorderSizePixel = 0
+contentFrame.Parent = mainFrame
+
+local contentUICorner = Instance.new("UICorner")
+contentUICorner.CornerRadius = UDim.new(0, 10)
+contentUICorner.Parent = contentFrame
+
+local listLayout = Instance.new("UIListLayout")
+listLayout.Padding = UDim.new(0, 8)
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+listLayout.Parent = contentFrame
+
+-------------------------------------------------------------------
+-- DEFINIÇÃO DAS FUNÇÕES POR CATEGORIA
+-------------------------------------------------------------------
+local categoryFunctions = {
+    ["Tp & View"] = {"Teleport", "Free Camera", "Third Person"},
+    Troll = {"Fling", "Random Explode", "Swap Positions"},
+    Carro = {"Speed Boost", "Vehicle Teleport", "Drift Mode"},
+    Avatar = {"Change Outfit", "Resize Character", "Colorize Avatar"},
+    Utilidades = {"ESP", "Admin Detector", "Anti-Kick"}
 }
-_G.NanaHub = cfg  -- global opcional pra depuração
 
----------------------------------------------------------------------
--- 🖼️  INTERFACE
----------------------------------------------------------------------
-local gui  = Instance.new("ScreenGui", LP:WaitForChild("PlayerGui"))
-gui.Name   = "NanaHubGUI"
-gui.ResetOnSpawn = false
-
-local main = Instance.new("Frame", gui)
-main.Size  = UDim2.new(0, 280, 0, 285)
-main.AnchorPoint = Vector2.new(0.5,0.5)
-main.Position    = UDim2.new(0.5,0,0.5,0)
-main.BackgroundColor3 = Color3.fromRGB(50,0,80)
-main.BackgroundTransparency = 0.05
-main.BorderSizePixel = 0
-Instance.new("UICorner", main).CornerRadius = UDim.new(0,10)
-
-local title = Instance.new("TextLabel", main)
-title.Size = UDim2.new(1,0,0,30)
-title.Text = "NANA HUB  v2.2"
-title.Font = Enum.Font.GothamBlack
-title.TextSize = 18
-title.TextColor3 = Color3.new(1,1,1)
-title.BackgroundTransparency = 1
-
--- botão de minimizar
-local mini = Instance.new("TextButton", gui)
-mini.Size = UDim2.new(0,110,0,30)
-mini.Position = UDim2.new(1,-120,1,-40)
-mini.Text = "Fechar Hub"
-mini.Font = Enum.Font.GothamBold
-mini.TextSize = 14
-mini.BackgroundColor3 = Color3.fromRGB(100,0,150)
-mini.TextColor3 = Color3.new(1,1,1)
-local guiVisible = true
-mini.MouseButton1Click:Connect(function()
-    guiVisible = not guiVisible
-    main.Visible = guiVisible
-    mini.Text = guiVisible and "Fechar Hub" or "Abrir Hub"
-end)
-
--- helper p/ criar botões-toggle
-local function makeToggle(label, order, key, callback)
-    local btn = Instance.new("TextButton", main)
-    btn.Size = UDim2.new(1,-20,0,35)
-    btn.Position = UDim2.new(0,10,0,45+order*45)
-    btn.Font = Enum.Font.Gotham
-    btn.TextSize = 14
-    btn.TextColor3 = Color3.new(1,1,1)
-    btn.BackgroundColor3 = Color3.fromRGB(80,0,120)
-
-    local function refresh()
-        local on = cfg[key]
-        btn.Text = ("%s: %s"):format(label, on and "Ligado" or "Desligado")
-        btn.BackgroundColor3 = on and Color3.fromRGB(30,160,70) or Color3.fromRGB(80,0,120)
-        if callback then callback(on) end
+local function populateContent(category)
+    -- Remove botões anteriores (exceto o UIListLayout)
+    for _, child in ipairs(contentFrame:GetChildren()) do
+        if child:IsA("TextButton") then
+            child:Destroy()
+        end
     end
+
+    for _, funcName in ipairs(categoryFunctions[category] or {}) do
+        local funcButton = Instance.new("TextButton")
+        funcButton.Name = funcName.."Button"
+        funcButton.Size = UDim2.new(1, -20, 0, 30)
+        funcButton.BackgroundColor3 = Color3.fromRGB(70, 0, 90)
+        funcButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        funcButton.Font = Enum.Font.Gotham
+        funcButton.TextSize = 14
+        funcButton.Text = funcName
+        funcButton.Parent = contentFrame
+
+        local btnCorner = Instance.new("UICorner")
+        btnCorner.CornerRadius = UDim.new(0, 5)
+        btnCorner.Parent = funcButton
+
+        funcButton.MouseButton1Click:Connect(function()
+            print("Função executada: " .. funcName)
+            -- Coloque aqui a lógica da função que desejar.
+        end)
+    end
+end
+
+-------------------------------------------------------------------
+-- CONEXÃO DOS BOTÕES DO MENU PARA ATUALIZAR O CONTEÚDO
+-------------------------------------------------------------------
+for _, btn in ipairs(menuButtons) do
     btn.MouseButton1Click:Connect(function()
-        cfg[key] = not cfg[key]
-        refresh()
+        populateContent(btn.Text)
     end)
-    refresh()
 end
 
--- botão para ciclar parte-alvo
-local partBtn = Instance.new("TextButton", main)
-partBtn.Size = UDim2.new(1,-20,0,35)
-partBtn.Position = UDim2.new(0,10,0,45+3*45)
-partBtn.Font = Enum.Font.Gotham
-partBtn.TextSize = 14
-partBtn.TextColor3 = Color3.new(1,1,1)
-partBtn.BackgroundColor3 = Color3.fromRGB(120,0,180)
-local function refreshPart()
-    partBtn.Text = "Parte-Alvo: "..targetParts[cfg.targetIndex]
-end
-partBtn.MouseButton1Click:Connect(function()
-    cfg.targetIndex = cfg.targetIndex % #targetParts + 1
-    refreshPart()
-end)
-refreshPart()
+-- Inicialmente, exibe as funções da primeira categoria ("Tp & View")
+populateContent("Tp & View")
 
-makeToggle("ESP",            0, "esp")
-makeToggle("Aimbot",         1, "aimbot")
-makeToggle("Verificar Time", 2, "teamCheck")
-makeToggle("Mostrar FOV",    4, "showFOV")
-makeToggle("Modo Leve",      5, "lowPower")
+-------------------------------------------------------------------
+-- BOTÃO DE MINIMIZAR/RESTAURAR - FICA FORA DO MAINFRAME
+-------------------------------------------------------------------
+local outsideMinimize = Instance.new("TextButton")
+outsideMinimize.Name = "OutsideMinimize"
+outsideMinimize.Size = UDim2.new(0, 30, 0, 30)
+-- Posiciona o botão no canto superior direito da tela (pode ajustar conforme necessário)
+outsideMinimize.Position = UDim2.new(1, 40, 0, 10)
+outsideMinimize.BackgroundColor3 = Color3.fromRGB(100, 0, 150)
+outsideMinimize.Text = "-"
+outsideMinimize.TextColor3 = Color3.new(1, 1, 1)
+outsideMinimize.Font = Enum.Font.GothamBold
+outsideMinimize.TextSize = 24
+outsideMinimize.BorderSizePixel = 0
+outsideMinimize.Parent = ScreenGui
 
----------------------------------------------------------------------
--- 🛠️  UTILIDADES
----------------------------------------------------------------------
-local function isEnemy(plr)
-    if plr == LP or not plr.Character then return false end
-    if cfg.teamCheck and plr.Team == LP.Team then return false end
-    return plr.Character:FindFirstChild(targetParts[cfg.targetIndex]) ~= nil
-end
-local function angleBetween(v1,v2)
-    return math.deg(math.acos(math.clamp(v1:Dot(v2),-1,1)))
-end
+local isHubVisible = true
 
----------------------------------------------------------------------
--- 🌈  ESP (Highlight)
----------------------------------------------------------------------
-local function addHL(char)
-    if not char or char:FindFirstChild("NanaHL") then return end
-    local hl = Instance.new("Highlight")
-    hl.Name = "NanaHL"
-    hl.FillColor = cfg.espFillColor
-    hl.FillTransparency = 0.5
-    hl.OutlineTransparency = 0
-    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    hl.Adornee = char
-    hl.Parent  = char
-end
-local function rmHL(char)
-    local h = char and char:FindFirstChild("NanaHL")
-    if h then h:Destroy() end
-end
-local function refreshESP()
-    for _,plr in ipairs(Players:GetPlayers()) do
-        if plr.Character then
-            if cfg.esp and isEnemy(plr) then addHL(plr.Character)
-            else rmHL(plr.Character) end
-        end
+outsideMinimize.MouseButton1Click:Connect(function()
+    if isHubVisible then
+        mainFrame.Visible = false
+        outsideMinimize.Text = "+"
+    else
+        mainFrame.Visible = true
+        outsideMinimize.Text = "-"
     end
-end
-Players.PlayerAdded:Connect(function(p)
-    p.CharacterAdded:Connect(function(c)
-        if cfg.esp then task.wait(0.1); if isEnemy(p) then addHL(c) end end
-    end)
+    isHubVisible = not isHubVisible
 end)
 
----------------------------------------------------------------------
--- 🎯  AIMBOT
----------------------------------------------------------------------
-local function getClosest()
-    local best,ang
-    local camPos  = Camera.CFrame.Position
-    local lookVec = Camera.CFrame.LookVector
-    for _,plr in ipairs(Players:GetPlayers()) do
-        if isEnemy(plr) then
-            local part = plr.Character:FindFirstChild(targetParts[cfg.targetIndex])
-            if part and part:IsA("BasePart") then
-                local dir = (part.Position - camPos).Unit
-                local a   = angleBetween(lookVec, dir)
-                if a <= cfg.fov and (not ang or a < ang) then
-                    ang,best = a,part
-                end
+-------------------------------------------------------------------
+-- REDIMENSIONAMENTO DO HUB (ARRASTE O CANTO INFERIOR DIREITO)
+-------------------------------------------------------------------
+local resizeHandle = Instance.new("Frame")
+resizeHandle.Name = "ResizeHandle"
+resizeHandle.Size = UDim2.new(0, 20, 0, 20)
+resizeHandle.AnchorPoint = Vector2.new(1, 1)
+resizeHandle.Position = UDim2.new(1, 0, 1, 0)
+resizeHandle.BackgroundTransparency = 1
+resizeHandle.Parent = mainFrame
+
+local resizeIcon = Instance.new("TextLabel")
+resizeIcon.Name = "ResizeIcon"
+resizeIcon.Size = UDim2.new(1, 0, 1, 0)
+resizeIcon.BackgroundTransparency = 1
+resizeIcon.Text = "↘"
+resizeIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
+resizeIcon.Font = Enum.Font.GothamBold
+resizeIcon.TextScaled = true
+resizeIcon.Parent = resizeHandle
+
+local dragging = false
+local dragStart, startSize
+
+resizeHandle.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startSize = mainFrame.AbsoluteSize
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
             end
-        end
+        end)
     end
-    return best
-end
-
----------------------------------------------------------------------
--- ⭕  Desenho do FOV (usando Drawing API; segura se não existir)
----------------------------------------------------------------------
-local fovCircle
-pcall(function()
-    fovCircle = Drawing.new("Circle")
-    fovCircle.Radius = 0
-    fovCircle.Filled = false
-    fovCircle.Color  = Color3.fromRGB(175,0,255)
-    fovCircle.Thickness = 1.5
 end)
-local function updateFOV()
-    if not fovCircle then return end
-    fovCircle.Visible = cfg.showFOV
-    if cfg.showFOV then
-        fovCircle.Radius = math.tan(math.rad(cfg.fov))*Camera.ViewportSize.Y
-        fovCircle.Position = Vector2.new(Camera.ViewportSize.X/2,Camera.ViewportSize.Y/2)
-    end
-end
 
----------------------------------------------------------------------
--- 🔄  LOOP PRINCIPAL
----------------------------------------------------------------------
-local lastLowTick = 0
-RunService.RenderStepped:Connect(function(dt)
-    cfg._dtAccumulator += dt
-    updateFOV()
-
-    -- decidir se roda nesta iteração (modo leve)
-    if cfg.lowPower and cfg._dtAccumulator < 0.1 then return end
-    cfg._dtAccumulator = 0
-
-    refreshESP()
-
-    if cfg.aimbot then
-        local tgt = getClosest()
-        if tgt then
-            local camCF = Camera.CFrame
-            local dir   = (tgt.Position - camCF.Position).Unit
-            local goal  = CFrame.new(camCF.Position, camCF.Position + dir)
-            local alpha = 1 - math.pow(1-cfg.smoothness, dt*60)
-            Camera.CFrame = camCF:Lerp(goal, alpha)
-        end
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        local newSize = startSize + Vector2.new(delta.X, delta.Y)
+        newSize = Vector2.new(math.max(newSize.X, 300), math.max(newSize.Y, 200)) -- Tamanho mínimo
+        mainFrame.Size = UDim2.new(0, newSize.X, 0, newSize.Y)
     end
 end)
