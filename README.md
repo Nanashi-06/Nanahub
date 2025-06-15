@@ -168,7 +168,7 @@ local outsideMinimize = Instance.new("TextButton")
 outsideMinimize.Name = "OutsideMinimize"
 outsideMinimize.Size = UDim2.new(0, 30, 0, 30)
 -- Posiciona o botão no canto superior direito da tela (pode ajustar conforme necessário)
-outsideMinimize.Position = UDim2.new(1, 40, 0, 10)
+outsideMinimize.Position = UDim2.new(1, 60, 0, 10)
 outsideMinimize.BackgroundColor3 = Color3.fromRGB(100, 0, 150)
 outsideMinimize.Text = "-"
 outsideMinimize.TextColor3 = Color3.new(1, 1, 1)
